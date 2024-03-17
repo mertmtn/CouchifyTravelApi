@@ -1,6 +1,8 @@
 ﻿using Couchbase;
 using Couchbase.Extensions.DependencyInjection;
+using CouchifyTravelApi.Models;
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace CouchifyTravelApi.Controllers
@@ -11,7 +13,7 @@ namespace CouchifyTravelApi.Controllers
     {
         private readonly INamedBucketProvider _buckedProvider = buckedProvider;
 
-        [HttpGet]
+        [HttpGet("GetByKey")]
         public async Task<string> Get(string key)
         {
             try
@@ -20,14 +22,40 @@ namespace CouchifyTravelApi.Controllers
                 var scope = bucket.Scope("inventory");
                 var collection = scope.Collection("airline");
 
-                JObject result = (await collection.GetAsync(key)).ContentAs<JObject>();
+                var result = (await collection.GetAsync(key)).ContentAs<JObject>();
+
+                var resultObj = JsonConvert.DeserializeObject<Airline>(result.ToString());
+
                 return $"Fetch document success. Result: {result}";
             }
             catch (CouchbaseException ex)
             {
                 return ex.Message;
             }
-            
+
+        }
+
+        [HttpGet("GetAll")]
+        public async Task<List<Airline>> Get()
+        {
+            try
+            { 
+                var bucket = await _buckedProvider.GetBucketAsync();
+                var scope = bucket.Scope("inventory");
+
+                var query = "Select callsign, country, iata, icao, id, name, type from airline";
+
+                var queryResult = await scope.QueryAsync<Airline>(query);
+
+                var result = await queryResult.Rows.ToListAsync();
+              
+                return result;
+            }
+            catch
+            {
+                return null;
+            }
+
         }
     }
 }
